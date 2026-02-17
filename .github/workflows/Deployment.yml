@@ -77,7 +77,7 @@ jobs:
                 pip install -r requirements.txt
 
                 # Create systemd service
-                sudo bash -c 'cat > /etc/systemd/system/fastapi.service <<EOF
+                sudo tee /etc/systemd/system/fastapi.service > /dev/null <<'EOF'
                 [Unit]
                 Description=FastAPI App
                 After=network.target
@@ -90,7 +90,7 @@ jobs:
 
                 [Install]
                 WantedBy=multi-user.target
-                EOF'
+                EOF
 
                 # Reload systemd and enable service
                 sudo systemctl daemon-reload
@@ -114,6 +114,7 @@ jobs:
                 EOF
 
                 sudo ln -s /etc/nginx/sites-available/fastapi /etc/nginx/sites-enabled
+                sudo rm -f /etc/nginx/sites-enabled/default
                 sudo nginx -t
                 sudo systemctl restart nginx
             fi
