@@ -58,7 +58,7 @@ resource "aws_instance" "emp_ec2" {
   ]
 
   tags = {
-    Name = "Employee-Management-System-Server"
+    Name = "Employee-Management-System-WebServer"
   }
 }
 
