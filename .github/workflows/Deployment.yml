@@ -39,7 +39,6 @@ jobs:
         working-directory: terraform
         run: terraform destroy -auto-approve
 
-
   deploy:
     runs-on: ubuntu-latest
     needs: terraform
@@ -74,7 +73,7 @@ jobs:
               source venv/bin/activate
               pip install -r requirements.txt
               
-              sudo tee /etc/systemd/system/fastapi.service > /dev/null << 'SERVICEEOF'
+              sudo tee /etc/systemd/system/fastapi.service > /dev/null <<- 'SERVICEEOF'
               [Unit]
               Description=FastAPI App
               After=network.target
@@ -93,7 +92,7 @@ jobs:
               sudo systemctl enable fastapi
               sudo systemctl start fastapi
 
-              sudo tee /etc/nginx/sites-available/fastapi > /dev/null << 'NGINXEOF'
+              sudo tee /etc/nginx/sites-available/fastapi > /dev/null <<- 'NGINXEOF'
               server {
                   listen 80;
                   server_name _;
