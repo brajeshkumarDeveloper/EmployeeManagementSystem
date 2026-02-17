@@ -34,7 +34,6 @@ jobs:
         working-directory: terraform
         run: terraform apply -input=false -auto-approve
 
-      #  This runs ONLY if apply fails
       - name: Terraform Destroy on Failure
         if: failure() && steps.apply.outcome == 'failure'
         working-directory: terraform
@@ -52,72 +51,67 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+          script: |-
             set -e
             cd ~
 
             if [ -d "EmployeeManagementSystem" ]; then
-                echo "Repo exists. Pulling latest changes..."
-                cd EmployeeManagementSystem
-                git pull origin main
+              echo "Repo exists. Pulling latest changes..."
+              cd EmployeeManagementSystem
+              git pull origin main
+              source venv/bin/activate
+              pip install -r requirements.txt
             else
-                echo "First time setup. Cloning repo and configuring server..."
+              echo "First time setup..."
 
-                # Clone repository
-                git clone https://github.com/brajeshkumarDeveloper/EmployeeManagementSystem.git
-                cd EmployeeManagementSystem
+              git clone https://github.com/brajeshkumarDeveloper/EmployeeManagementSystem.git
+              cd EmployeeManagementSystem
 
-                # Install Python & dependencies
-                sudo apt update
-                sudo apt install -y python3-pip python3-venv nginx
+              sudo apt update
+              sudo apt install -y python3-pip python3-venv nginx
 
-                # Create virtual environment
-                python3 -m venv venv
-                source venv/bin/activate
-                pip install -r requirements.txt
+              python3 -m venv venv
+              source venv/bin/activate
+              pip install -r requirements.txt
+              
+              sudo tee /etc/systemd/system/fastapi.service > /dev/null << 'SERVICEEOF'
+              [Unit]
+              Description=FastAPI App
+              After=network.target
 
-                # Create systemd service
-                sudo tee /etc/systemd/system/fastapi.service > /dev/null <<EOF
-                [Unit]
-                Description=FastAPI App
-                After=network.target
+              [Service]
+              User=ubuntu
+              WorkingDirectory=/home/ubuntu/EmployeeManagementSystem
+              ExecStart=/home/ubuntu/EmployeeManagementSystem/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+              Restart=always
 
-                [Service]
-                User=ubuntu
-                WorkingDirectory=/home/ubuntu/EmployeeManagementSystem
-                ExecStart=/home/ubuntu/EmployeeManagementSystem/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
-                Restart=always
+              [Install]
+              WantedBy=multi-user.target
+              SERVICEEOF
 
-                [Install]
-                WantedBy=multi-user.target
-                EOF
+              sudo systemctl daemon-reload
+              sudo systemctl enable fastapi
+              sudo systemctl start fastapi
 
-                # Reload systemd and enable service
-                sudo systemctl daemon-reload
-                sudo systemctl enable fastapi
-                sudo systemctl start fastapi
+              sudo tee /etc/nginx/sites-available/fastapi > /dev/null << 'NGINXEOF'
+              server {
+                  listen 80;
+                  server_name _;
 
-                # Configure Nginx
-                sudo tee /etc/nginx/sites-available/fastapi > /dev/null <<EOF
-                server {
-                    listen 80;
-                    server_name _;
+                  location / {
+                      proxy_pass http://127.0.0.1:8000;
+                      proxy_set_header Host $host;
+                      proxy_set_header X-Real-IP $remote_addr;
+                      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header X-Forwarded-Proto $scheme;
+                  }
+              }
+              NGINXEOF
 
-                    location / {
-                        proxy_pass http://127.0.0.1:8000;
-                        proxy_set_header Host \$host;
-                        proxy_set_header X-Real-IP \$remote_addr;
-                        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto \$scheme;
-                    }
-                }
-                EOF
-
-                sudo ln -s /etc/nginx/sites-available/fastapi /etc/nginx/sites-enabled
-                sudo rm -f /etc/nginx/sites-enabled/default
-                sudo nginx -t
-                sudo systemctl restart nginx
+              sudo ln -sf /etc/nginx/sites-available/fastapi /etc/nginx/sites-enabled/fastapi
+              sudo rm -f /etc/nginx/sites-enabled/default
+              sudo nginx -t
+              sudo systemctl restart nginx
             fi
 
-            # Restart service on every deployment
             sudo systemctl restart fastapi
