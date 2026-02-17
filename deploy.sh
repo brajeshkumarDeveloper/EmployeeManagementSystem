@@ -1,18 +1,13 @@
 #!/bin/bash
 set -e
-cd ~
 
-if [ -d "EmployeeManagementSystem" ]; then
-  echo "Repo exists. Pulling latest changes..."
-  cd EmployeeManagementSystem
+if [ -d "venv" ]; then
+  echo "Virtual environment exists. Pulling latest changes..."
   git pull origin main
   source venv/bin/activate
   pip install -r requirements.txt
 else
   echo "First time setup..."
-
-  git clone https://github.com/brajeshkumarDeveloper/EmployeeManagementSystem.git
-  cd EmployeeManagementSystem
 
   sudo apt update
   sudo apt install -y python3-pip python3-venv nginx
